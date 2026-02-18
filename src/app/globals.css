@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+:root {
+  --text: #f7efe7;
+  --text-subtle: #f2e0d0;
+  --panel: rgba(31, 19, 14, 0.62);
+  --panel-soft: rgba(59, 36, 27, 0.5);
+  --panel-border: rgba(255, 218, 189, 0.3);
+  --accent: #f2b87f;
+  --accent-strong: #d6803b;
+  --danger: #fca5a5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  position: relative;
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  font-family: var(--font-cozy-sans), sans-serif;
+  background: #1a1410;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background: url("/drink.jpg") center / cover no-repeat;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(170deg, rgba(30, 14, 8, 0.78) 0%, rgba(21, 15, 11, 0.6) 45%, rgba(27, 24, 24, 0.7) 100%);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-cozy-serif), serif;
+  letter-spacing: 0.02em;
+}
+
+main {
+  animation: rise-in 420ms ease-out both;
+}
+
+input,
+select,
+button {
+  font: inherit;
+}
+
+button,
+a,
+input,
+select {
+  transition: all 180ms ease;
+}
+
+input,
+select {
+  background: rgba(255, 250, 244, 0.92);
+  border: 1px solid rgba(255, 212, 180, 0.48);
+  color: #4a2d1f;
+}
+
+input::placeholder {
+  color: #9c6d50;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: rgba(240, 176, 120, 0.92);
+  box-shadow: 0 0 0 3px rgba(223, 149, 89, 0.28);
+}
+
+.cozy-shell {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.cozy-panel {
+  border: 1px solid var(--panel-border);
+  background: linear-gradient(150deg, var(--panel) 0%, var(--panel-soft) 100%);
+  box-shadow: 0 20px 70px rgba(6, 4, 3, 0.4);
+  backdrop-filter: blur(10px);
+}
+
+.cozy-pill {
+  border: 1px solid rgba(255, 211, 174, 0.34);
+  background: rgba(255, 218, 189, 0.12);
+}
+
+.cozy-cta {
+  color: #fef6ef;
+  background: linear-gradient(135deg, var(--accent-strong) 0%, var(--accent) 100%);
+  border: 1px solid rgba(255, 224, 200, 0.44);
+  box-shadow: 0 10px 26px rgba(181, 105, 47, 0.34);
+}
+
+.cozy-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(170, 93, 35, 0.45);
+}
+
+.cozy-danger {
+  border: 1px solid rgba(252, 165, 165, 0.5);
+  background: rgba(127, 29, 29, 0.26);
+  color: #fee2e2;
+}
+
+.stagger-1 {
+  animation: rise-in 460ms ease-out both;
+}
+
+.stagger-2 {
+  animation: rise-in 560ms ease-out both;
+}
+
+.stagger-3 {
+  animation: rise-in 680ms ease-out both;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "title": "Pasajes de Avion ida y vuelta",
+    "category": "Pasajes",
+    "date": "2026-02-17",
+    "amount": 500,
+    "currency": "USD",
+    "createdBy": "FACU",
+    "paidBy": "FACU",
+    "id": "3dcf0079-c7d1-4654-8a15-4400a577ace4",
+    "createdAt": "2026-02-17T23:37:25.140Z",
+    "updatedAt": "2026-02-17T23:37:25.140Z"
+  },
+  {
+    "title": "Hotel Rio de Janeiro",
+    "category": "Estadía",
+    "date": "2026-02-17",
+    "amount": 1000,
+    "currency": "BRL",
+    "createdBy": "FACU",
+    "paidBy": "FACU",
+    "id": "0ee4fd91-6a82-45d4-b9b8-3edca87d7b2a",
+    "createdAt": "2026-02-17T23:38:41.004Z",
+    "updatedAt": "2026-02-17T23:38:41.004Z"
+  },
+  {
+    "title": "Caipirinha",
+    "category": "Comidas",
+    "date": "2026-02-18",
+    "amount": 30,
+    "currency": "BRL",
+    "createdBy": "TEFI",
+    "paidBy": "TEFI",
+    "id": "df52143b-cf59-409e-acee-b8aa85c0f633",
+    "createdAt": "2026-02-18T00:37:45.043Z",
+    "updatedAt": "2026-02-18T00:37:45.043Z"
+  }
+]
