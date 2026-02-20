@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionFromRequest } from "@/lib/auth";
+import { createClient } from "@/lib/supabase-server";
 import { removeExpense, updateExpense } from "@/lib/store";
 import { validateExpensePatch } from "@/lib/validation";
 
@@ -8,7 +8,9 @@ type Params = {
 };
 
 export async function PATCH(request: NextRequest, { params }: Params) {
-  const user = getSessionFromRequest(request);
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -29,7 +31,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(request: NextRequest, { params }: Params) {
-  const user = getSessionFromRequest(request);
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

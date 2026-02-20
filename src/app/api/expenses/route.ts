@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionFromRequest } from "@/lib/auth";
+import { createClient } from "@/lib/supabase-server";
 import { withConversion } from "@/lib/exchange";
 import { createExpense, getExpenses } from "@/lib/store";
 import { validateExpenseInput } from "@/lib/validation";
 
 export async function GET(request: NextRequest) {
-  const user = getSessionFromRequest(request);
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -15,7 +17,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const user = getSessionFromRequest(request);
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
