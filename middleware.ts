@@ -1,10 +1,39 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { SESSION_COOKIE } from "@/lib/constants";
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({
+    request,
+  });
+
+  const supabase = createServerClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          supabaseResponse = NextResponse.next({
+            request,
+          });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const { pathname } = request.nextUrl;
-  const hasSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
+
+  const hasSession = !!user;
 
   if (pathname.startsWith("/api/expenses") && !hasSession) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -20,7 +49,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(dashboardUrl);
   }
 
-  return NextResponse.next();
+  return supabaseResponse;
 }
 
 export const config = {

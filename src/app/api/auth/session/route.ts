@@ -1,11 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getSessionFromRequest } from "@/lib/auth";
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase-server";
 
-export async function GET(request: NextRequest) {
-  const user = getSessionFromRequest(request);
+export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  return NextResponse.json({ user });
+  // Mapeamos el email (facu@brasil2026.app -> facu)
+  const username = user.email ? user.email.split("@")[0].toUpperCase() : "UNKNOWN";
+
+  return NextResponse.json({ user: { username, name: username } });
 }

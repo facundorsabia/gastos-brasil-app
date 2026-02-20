@@ -37,7 +37,7 @@ export default function LoginPage() {
     <main className="cozy-shell flex min-h-screen w-full max-w-md items-center p-6">
       <section className="cozy-panel w-full rounded-3xl p-7 text-[#fff6ee] shadow-2xl">
         <p className="cozy-pill inline-flex rounded-full px-3 py-1 text-xs tracking-[0.18em] text-[#ffd8b6]">VACACIONES BRASIL</p>
-        <h1 className="mt-3 text-4xl font-semibold">Gastos cozy</h1>
+        <h1 className="mt-3 text-4xl font-semibold">Hola amor! Agendita de gastos Brasil 2026</h1>
         <p className="mt-2 text-sm text-[#f4dcc8]">Acceso privado con usuario y contraseña.</p>
 
         <form className="mt-6 space-y-4" onSubmit={onSubmit}>
