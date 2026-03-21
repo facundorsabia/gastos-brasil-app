@@ -6,6 +6,11 @@ export type Currency = (typeof CURRENCIES)[number];
 export type Person = (typeof PEOPLE)[number];
 export type PaidBy = (typeof PAID_BY)[number];
 
+export type SplitDetails = {
+  TEFI: number;
+  FACU: number;
+};
+
 export type Expense = {
   id: string;
   title: string;
@@ -15,6 +20,7 @@ export type Expense = {
   currency: Currency;
   createdBy: Person;
   paidBy: PaidBy;
+  splitDetails?: SplitDetails;
   createdAt: string;
   updatedAt: string;
 };

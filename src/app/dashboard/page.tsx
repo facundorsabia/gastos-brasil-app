@@ -15,6 +15,7 @@ type Expense = {
   currency: Currency;
   createdBy: Person;
   paidBy: PaidBy;
+  splitDetails?: { TEFI: number; FACU: number };
   converted: { usd: number; brl: number; ars: number };
 };
 
@@ -38,6 +39,7 @@ type ExpenseForm = {
   currency: Currency;
   createdBy: Person;
   paidBy: PaidBy;
+  splitDetails: { TEFI: string; FACU: string };
 };
 
 const initialForm: ExpenseForm = {
@@ -47,7 +49,8 @@ const initialForm: ExpenseForm = {
   amount: "",
   currency: "BRL",
   createdBy: "TEFI",
-  paidBy: "SHARED",
+  paidBy: "TEFI", // Cambiamos el default a algo no compartido para simplificar
+  splitDetails: { TEFI: "0", FACU: "0" },
 };
 
 const format = (amount: number, currency: Currency) =>
@@ -120,9 +123,25 @@ export default function DashboardPage() {
         acc.total.brl += expense.converted.brl;
         acc.total.ars += expense.converted.ars;
 
-        acc.contributions[expense.paidBy].usd += expense.converted.usd;
-        acc.contributions[expense.paidBy].brl += expense.converted.brl;
-        acc.contributions[expense.paidBy].ars += expense.converted.ars;
+        if (expense.paidBy === "SHARED" && expense.splitDetails) {
+          // Si es compartido y tiene detalle, distribuimos según el porcentaje del monto original
+          const totalOriginal = expense.amount;
+          const ratioTefi = expense.splitDetails.TEFI / totalOriginal;
+          const ratioFacu = expense.splitDetails.FACU / totalOriginal;
+
+          acc.contributions.TEFI.usd += expense.converted.usd * ratioTefi;
+          acc.contributions.TEFI.brl += expense.converted.brl * ratioTefi;
+          acc.contributions.TEFI.ars += expense.converted.ars * ratioTefi;
+
+          acc.contributions.FACU.usd += expense.converted.usd * ratioFacu;
+          acc.contributions.FACU.brl += expense.converted.brl * ratioFacu;
+          acc.contributions.FACU.ars += expense.converted.ars * ratioFacu;
+        } else {
+          // Si no es compartido o no tiene detalle, lo sumamos al acumulador que corresponda
+          acc.contributions[expense.paidBy].usd += expense.converted.usd;
+          acc.contributions[expense.paidBy].brl += expense.converted.brl;
+          acc.contributions[expense.paidBy].ars += expense.converted.ars;
+        }
         return acc;
       },
       {
@@ -150,8 +169,11 @@ export default function DashboardPage() {
         date: form.date,
         amount: Number(form.amount),
         currency: form.currency,
-        createdBy: form.createdBy,
+        createdBy: user.username.toUpperCase() as Person,
         paidBy: form.paidBy,
+        splitDetails: form.paidBy === "SHARED"
+          ? { TEFI: Number(form.splitDetails.TEFI), FACU: Number(form.splitDetails.FACU) }
+          : null,
       };
 
       const url = editingId ? `/api/expenses/${editingId}` : "/api/expenses";
@@ -188,6 +210,9 @@ export default function DashboardPage() {
       currency: expense.currency,
       createdBy: expense.createdBy,
       paidBy: expense.paidBy,
+      splitDetails: expense.splitDetails
+        ? { TEFI: String(expense.splitDetails.TEFI), FACU: String(expense.splitDetails.FACU) }
+        : { TEFI: "0", FACU: "0" },
     });
   };
 
@@ -300,24 +325,71 @@ export default function DashboardPage() {
             <option value="ARS">ARS</option>
           </select>
 
-          <select
-            className="rounded-xl px-3 py-2"
-            value={form.createdBy}
-            onChange={(event) => setForm((current) => ({ ...current, createdBy: event.target.value as Person }))}
-          >
-            <option value="TEFI">Tefi</option>
-            <option value="FACU">Facu</option>
-          </select>
 
-          <select
-            className="rounded-xl px-3 py-2"
-            value={form.paidBy}
-            onChange={(event) => setForm((current) => ({ ...current, paidBy: event.target.value as PaidBy }))}
-          >
-            <option value="TEFI">Pagó Tefi</option>
-            <option value="FACU">Pagó Facu</option>
-            <option value="SHARED">Compartido</option>
-          </select>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-[#ffd8b6] ml-1">¿Quién pagó?</label>
+            <select
+              className="rounded-xl px-3 py-2 w-full"
+              value={form.paidBy}
+              onChange={(event) => {
+                const val = event.target.value as PaidBy;
+                setForm((current) => {
+                  const newState = { ...current, paidBy: val };
+                  if (val === "SHARED" && current.amount) {
+                    const half = (Number(current.amount) / 2).toFixed(2);
+                    newState.splitDetails = { TEFI: half, FACU: half };
+                  }
+                  return newState;
+                });
+              }}
+            >
+              <option value="TEFI">Pagó Tefi</option>
+              <option value="FACU">Pagó Facu</option>
+              <option value="SHARED">Compartido</option>
+            </select>
+          </div>
+
+          {form.paidBy === "SHARED" && (
+            <div className="md:col-span-3 grid grid-cols-2 gap-3 p-3 rounded-xl bg-[#ffd9bd0d] border border-[#ffd9bd1a]">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-[#f0d9c7]">Puso Tefi</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="rounded-xl px-3 py-2"
+                  value={form.splitDetails.TEFI}
+                  onChange={(e) => {
+                    const tefiVal = e.target.value;
+                    const total = Number(form.amount) || 0;
+                    const facuVal = (total - Number(tefiVal)).toFixed(2);
+                    setForm((current) => ({
+                      ...current,
+                      splitDetails: { TEFI: tefiVal, FACU: facuVal },
+                    }));
+                  }}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-[#f0d9c7]">Puso Facu</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="rounded-xl px-3 py-2"
+                  value={form.splitDetails.FACU}
+                  onChange={(e) => {
+                    const facuVal = e.target.value;
+                    const total = Number(form.amount) || 0;
+                    const tefiVal = (total - Number(facuVal)).toFixed(2);
+                    setForm((current) => ({
+                      ...current,
+                      splitDetails: { TEFI: tefiVal, FACU: facuVal },
+                    }));
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="md:col-span-2 flex flex-wrap gap-2">
             <button
@@ -398,6 +470,9 @@ export default function DashboardPage() {
                     </p>
                     <p className="mt-2 text-sm text-[#fff2e7]">
                       Original: {format(expense.amount, expense.currency)} · Pagó: {expense.paidBy}
+                      {expense.paidBy === "SHARED" && expense.splitDetails && (
+                        <span className="text-[#ffd8b6]"> (Tefi: {format(expense.splitDetails.TEFI, expense.currency)} | Facu: {format(expense.splitDetails.FACU, expense.currency)})</span>
+                      )}
                     </p>
                     <p className="text-sm text-[#f3d8c4]">
                       Eq: {format(expense.converted.usd, "USD")} | {format(expense.converted.brl, "BRL")} | {format(expense.converted.ars, "ARS")}

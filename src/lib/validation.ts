@@ -13,6 +13,7 @@ export type ExpenseInput = {
   currency: Currency;
   createdBy: Person;
   paidBy: PaidBy;
+  splitDetails?: { TEFI: number; FACU: number } | null;
 };
 
 export const validateExpenseInput = (payload: unknown): ExpenseInput | null => {
@@ -28,6 +29,8 @@ export const validateExpenseInput = (payload: unknown): ExpenseInput | null => {
   if (!isEnumValue(body.createdBy, PEOPLE)) return null;
   if (!isEnumValue(body.paidBy, PAID_BY)) return null;
 
+  const splitDetails = (body.splitDetails as ExpenseInput["splitDetails"]) || null;
+
   return {
     title: body.title.trim(),
     category: body.category.trim(),
@@ -36,6 +39,7 @@ export const validateExpenseInput = (payload: unknown): ExpenseInput | null => {
     currency: body.currency,
     createdBy: body.createdBy,
     paidBy: body.paidBy,
+    splitDetails,
   };
 };
 
