@@ -1,74 +1,19 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
-
-type Currency = "USD" | "BRL" | "ARS";
-type Person = "TEFI" | "FACU";
-type PaidBy = Person | "SHARED";
-
-type Expense = {
-  id: string;
-  title: string;
-  category: string;
-  date: string;
-  amount: number;
-  currency: Currency;
-  createdBy: Person;
-  paidBy: PaidBy;
-  splitDetails?: { TEFI: number; FACU: number };
-  converted: { usd: number; brl: number; ars: number };
-};
-
-type SessionUser = {
-  name: string;
-  username: string;
-};
-
-type Filters = {
-  person: "ALL" | Person;
-  category: string;
-  startDate: string;
-  endDate: string;
-};
-
-type ExpenseForm = {
-  title: string;
-  category: string;
-  date: string;
-  amount: string;
-  currency: Currency;
-  createdBy: Person;
-  paidBy: PaidBy;
-  splitDetails: { TEFI: string; FACU: string };
-};
-
-const initialForm: ExpenseForm = {
-  title: "",
-  category: "",
-  date: new Date().toISOString().slice(0, 10),
-  amount: "",
-  currency: "BRL",
-  createdBy: "TEFI",
-  paidBy: "TEFI", // Cambiamos el default a algo no compartido para simplificar
-  splitDetails: { TEFI: "0", FACU: "0" },
-};
-
-const format = (amount: number, currency: Currency) =>
-  new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: currency === "ARS" ? 0 : 2,
-  }).format(amount);
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Plus, List as ListIcon } from "lucide-react";
+import { ExpenseWithConversion, SessionUser } from "@/lib/types";
+import { KpiCards } from "@/components/KpiCards";
+import { ExpenseCharts } from "@/components/ExpenseCharts";
+import { ExpenseModal } from "@/components/ExpenseModal";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<SessionUser | null>(null);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [filters, setFilters] = useState<Filters>({ person: "ALL", category: "", startDate: "", endDate: "" });
-  const [form, setForm] = useState<ExpenseForm>(initialForm);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [expenses, setExpenses] = useState<ExpenseWithConversion[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -93,7 +38,7 @@ export default function DashboardPage() {
         return;
       }
 
-      const expensesPayload = (await expensesResponse.json()) as { expenses: Expense[] };
+      const expensesPayload = (await expensesResponse.json()) as { expenses: ExpenseWithConversion[] };
       setExpenses(expensesPayload.expenses);
     } catch {
       setError("Error de red cargando datos");
@@ -106,25 +51,14 @@ export default function DashboardPage() {
     void loadData();
   }, []);
 
-  const filteredExpenses = useMemo(() => {
-    return expenses.filter((expense) => {
-      if (filters.person !== "ALL" && expense.createdBy !== filters.person) return false;
-      if (filters.category && !expense.category.toLowerCase().includes(filters.category.toLowerCase())) return false;
-      if (filters.startDate && expense.date < filters.startDate) return false;
-      if (filters.endDate && expense.date > filters.endDate) return false;
-      return true;
-    });
-  }, [expenses, filters]);
-
   const summary = useMemo(() => {
-    return filteredExpenses.reduce(
+    return expenses.reduce(
       (acc, expense) => {
         acc.total.usd += expense.converted.usd;
         acc.total.brl += expense.converted.brl;
         acc.total.ars += expense.converted.ars;
 
         if (expense.paidBy === "SHARED" && expense.splitDetails) {
-          // Si es compartido y tiene detalle, distribuimos según el porcentaje del monto original
           const totalOriginal = expense.amount;
           const ratioTefi = expense.splitDetails.TEFI / totalOriginal;
           const ratioFacu = expense.splitDetails.FACU / totalOriginal;
@@ -137,10 +71,12 @@ export default function DashboardPage() {
           acc.contributions.FACU.brl += expense.converted.brl * ratioFacu;
           acc.contributions.FACU.ars += expense.converted.ars * ratioFacu;
         } else {
-          // Si no es compartido o no tiene detalle, lo sumamos al acumulador que corresponda
-          acc.contributions[expense.paidBy].usd += expense.converted.usd;
-          acc.contributions[expense.paidBy].brl += expense.converted.brl;
-          acc.contributions[expense.paidBy].ars += expense.converted.ars;
+          // If paid by someone specific and not shared
+          // Wait, lib/types says PaidBy is Person | "SHARED", where Person = "TEFI" | "FACU"
+          // So if not SHARED, it is TEFI or FACU.
+          acc.contributions[expense.paidBy as keyof typeof acc.contributions].usd += expense.converted.usd;
+          acc.contributions[expense.paidBy as keyof typeof acc.contributions].brl += expense.converted.brl;
+          acc.contributions[expense.paidBy as keyof typeof acc.contributions].ars += expense.converted.ars;
         }
         return acc;
       },
@@ -153,77 +89,7 @@ export default function DashboardPage() {
         },
       },
     );
-  }, [filteredExpenses]);
-
-  const saveExpense = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!user) return;
-
-    setSaving(true);
-    setError(null);
-
-    try {
-      const body = {
-        title: form.title,
-        category: form.category,
-        date: form.date,
-        amount: Number(form.amount),
-        currency: form.currency,
-        createdBy: user.username.toUpperCase() as Person,
-        paidBy: form.paidBy,
-        splitDetails: form.paidBy === "SHARED"
-          ? { TEFI: Number(form.splitDetails.TEFI), FACU: Number(form.splitDetails.FACU) }
-          : null,
-      };
-
-      const url = editingId ? `/api/expenses/${editingId}` : "/api/expenses";
-      const method = editingId ? "PATCH" : "POST";
-
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        setError("No se pudo guardar el gasto. Revisá los datos.");
-        return;
-      }
-
-      setForm(initialForm);
-      setEditingId(null);
-      await loadData();
-    } catch {
-      setError("Error guardando el gasto");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const onEdit = (expense: Expense) => {
-    setEditingId(expense.id);
-    setForm({
-      title: expense.title,
-      category: expense.category,
-      date: expense.date,
-      amount: String(expense.amount),
-      currency: expense.currency,
-      createdBy: expense.createdBy,
-      paidBy: expense.paidBy,
-      splitDetails: expense.splitDetails
-        ? { TEFI: String(expense.splitDetails.TEFI), FACU: String(expense.splitDetails.FACU) }
-        : { TEFI: "0", FACU: "0" },
-    });
-  };
-
-  const onDelete = async (id: string) => {
-    if (!window.confirm("¿Eliminar este gasto?")) return;
-
-    const response = await fetch(`/api/expenses/${id}`, { method: "DELETE" });
-    if (response.ok) {
-      await loadData();
-    }
-  };
+  }, [expenses]);
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -231,268 +97,61 @@ export default function DashboardPage() {
   };
 
   if (loading) {
-    return <main className="cozy-shell p-6 text-[#fff0e5]">Cargando...</main>;
+    return <main className="cozy-shell flex items-center justify-center min-h-screen text-[#fff0e5]">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-8 h-8 border-4 border-[#f4a261] border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-sm font-medium tracking-wide">Cargando...</p>
+      </div>
+    </main>;
   }
 
   return (
-    <main className="cozy-shell p-4 text-[#fff0e5] md:p-6">
-      <header className="stagger-1 mb-6 flex flex-wrap items-center justify-between gap-3">
+    <main className="cozy-shell p-4 text-[#fff0e5] md:p-6 min-h-screen">
+      <header className="stagger-1 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <p className="cozy-pill inline-flex rounded-full px-3 py-1 text-xs tracking-[0.2em] text-[#ffd8b6]">TRIP TRACKER</p>
-          <h1 className="mt-3 text-4xl font-semibold">Dashboard de gastos</h1>
-          <p className="mt-1 text-sm text-[#f3ddcc]">Usuario: {user?.name}</p>
+          <h1 className="mt-2 text-4xl font-semibold">Dashboard</h1>
+          <p className="mt-1 text-sm text-[#f3ddcc]">Hola, {user?.name}</p>
         </div>
-        <button onClick={logout} className="cozy-pill rounded-xl px-3 py-2 text-sm text-[#ffe9d7] hover:bg-[#ffd9bd1f]">
-          Cerrar sesión
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href="/dashboard/expenses"
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium bg-[#1a1512] border border-[#ffd4b820] hover:bg-[#231d19] transition-colors text-[#f0d9c7]"
+          >
+            <ListIcon size={16} />
+            Ver Detalles
+          </Link>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="cozy-cta flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium shadow-lg shadow-[#f4a261]/20 hover:-translate-y-0.5 transition-all"
+          >
+            <Plus size={18} />
+            Cargar nuevo gasto
+          </button>
+          <button onClick={logout} className="ml-auto md:ml-2 rounded-xl px-4 py-2.5 text-sm text-[#ffe9d7] hover:bg-[#ffd9bd1f] transition-colors">
+            Salir
+          </button>
+        </div>
       </header>
 
-      <section className="stagger-2 grid gap-3 md:grid-cols-3">
-        <article className="cozy-panel rounded-2xl p-4">
-          <p className="text-xs text-[#f0d9c7]">Total USD</p>
-          <p className="text-xl font-semibold">{format(summary.total.usd, "USD")}</p>
-        </article>
-        <article className="cozy-panel rounded-2xl p-4">
-          <p className="text-xs text-[#f0d9c7]">Total BRL</p>
-          <p className="text-xl font-semibold">{format(summary.total.brl, "BRL")}</p>
-        </article>
-        <article className="cozy-panel rounded-2xl p-4">
-          <p className="text-xs text-[#f0d9c7]">Total ARS</p>
-          <p className="text-xl font-semibold">{format(summary.total.ars, "ARS")}</p>
-        </article>
-      </section>
+      {error && <p className="mb-6 rounded-xl bg-red-950/40 border border-red-500/20 px-4 py-3 text-sm text-red-100">{error}</p>}
 
-      <section className="stagger-2 mt-4 grid gap-3 md:grid-cols-3">
-        <article className="cozy-panel rounded-2xl p-4">
-          <p className="text-xs text-[#f0d9c7]">Aportado por Tefi (USD)</p>
-          <p className="text-lg font-semibold">{format(summary.contributions.TEFI.usd, "USD")}</p>
-        </article>
-        <article className="cozy-panel rounded-2xl p-4">
-          <p className="text-xs text-[#f0d9c7]">Aportado por Facu (USD)</p>
-          <p className="text-lg font-semibold">{format(summary.contributions.FACU.usd, "USD")}</p>
-        </article>
-        <article className="cozy-panel rounded-2xl p-4">
-          <p className="text-xs text-[#f0d9c7]">Compartido (USD)</p>
-          <p className="text-lg font-semibold">{format(summary.contributions.SHARED.usd, "USD")}</p>
-        </article>
-      </section>
+      <div className="flex flex-col gap-6 items-stretch">
+        <section className="stagger-2">
+          <KpiCards summary={summary} />
+        </section>
 
-      <section className="stagger-3 mt-6 rounded-2xl cozy-panel p-4 md:p-5">
-        <h2 className="mb-4 text-lg font-semibold">{editingId ? "Editar gasto" : "Nuevo gasto"}</h2>
+        <section className="stagger-3 w-full">
+          <ExpenseCharts expenses={expenses} />
+        </section>
+      </div>
 
-        <form className="grid gap-3 md:grid-cols-3" onSubmit={saveExpense}>
-          <input
-            required
-            placeholder="Título"
-            className="rounded-xl px-3 py-2"
-            value={form.title}
-            onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
-          />
-
-          <input
-            placeholder="Categoría"
-            className="rounded-xl px-3 py-2"
-            value={form.category}
-            onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
-          />
-
-          <input
-            required
-            type="date"
-            className="rounded-xl px-3 py-2"
-            value={form.date}
-            onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
-          />
-
-          <input
-            required
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="Monto"
-            className="rounded-xl px-3 py-2"
-            value={form.amount}
-            onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
-          />
-
-          <select
-            className="rounded-xl px-3 py-2"
-            value={form.currency}
-            onChange={(event) => setForm((current) => ({ ...current, currency: event.target.value as Currency }))}
-          >
-            <option value="USD">USD</option>
-            <option value="BRL">BRL</option>
-            <option value="ARS">ARS</option>
-          </select>
-
-
-
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-[#ffd8b6] ml-1">¿Quién pagó?</label>
-            <select
-              className="rounded-xl px-3 py-2 w-full"
-              value={form.paidBy}
-              onChange={(event) => {
-                const val = event.target.value as PaidBy;
-                setForm((current) => {
-                  const newState = { ...current, paidBy: val };
-                  if (val === "SHARED" && current.amount) {
-                    const half = (Number(current.amount) / 2).toFixed(2);
-                    newState.splitDetails = { TEFI: half, FACU: half };
-                  }
-                  return newState;
-                });
-              }}
-            >
-              <option value="TEFI">Pagó Tefi</option>
-              <option value="FACU">Pagó Facu</option>
-              <option value="SHARED">Compartido</option>
-            </select>
-          </div>
-
-          {form.paidBy === "SHARED" && (
-            <div className="md:col-span-3 grid grid-cols-2 gap-3 p-3 rounded-xl bg-[#ffd9bd0d] border border-[#ffd9bd1a]">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-[#f0d9c7]">Puso Tefi</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="rounded-xl px-3 py-2"
-                  value={form.splitDetails.TEFI}
-                  onChange={(e) => {
-                    const tefiVal = e.target.value;
-                    const total = Number(form.amount) || 0;
-                    const facuVal = (total - Number(tefiVal)).toFixed(2);
-                    setForm((current) => ({
-                      ...current,
-                      splitDetails: { TEFI: tefiVal, FACU: facuVal },
-                    }));
-                  }}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-[#f0d9c7]">Puso Facu</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="rounded-xl px-3 py-2"
-                  value={form.splitDetails.FACU}
-                  onChange={(e) => {
-                    const facuVal = e.target.value;
-                    const total = Number(form.amount) || 0;
-                    const tefiVal = (total - Number(facuVal)).toFixed(2);
-                    setForm((current) => ({
-                      ...current,
-                      splitDetails: { TEFI: tefiVal, FACU: facuVal },
-                    }));
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="md:col-span-2 flex flex-wrap gap-2">
-            <button
-              disabled={saving}
-              type="submit"
-              className="cozy-cta rounded-xl px-3 py-2 disabled:opacity-60"
-            >
-              {saving ? "Guardando..." : editingId ? "Actualizar" : "Crear"}
-            </button>
-            {editingId ? (
-              <button
-                type="button"
-                className="cozy-pill rounded-xl px-3 py-2 text-[#ffe9d7]"
-                onClick={() => {
-                  setEditingId(null);
-                  setForm(initialForm);
-                }}
-              >
-                Cancelar edición
-              </button>
-            ) : null}
-          </div>
-        </form>
-
-        {error ? <p className="mt-3 rounded-xl bg-red-950/40 px-3 py-2 text-sm text-red-100">{error}</p> : null}
-      </section>
-
-      <section className="stagger-3 mt-6 rounded-2xl cozy-panel p-4 md:p-5">
-        <h2 className="mb-4 text-lg font-semibold">Filtros</h2>
-        <div className="grid gap-3 md:grid-cols-4">
-          <select
-            value={filters.person}
-            className="rounded-xl px-3 py-2"
-            onChange={(event) => setFilters((current) => ({ ...current, person: event.target.value as Filters["person"] }))}
-          >
-            <option value="ALL">Todos</option>
-            <option value="TEFI">Tefi</option>
-            <option value="FACU">Facu</option>
-          </select>
-
-          <input
-            placeholder="Categoría"
-            className="rounded-xl px-3 py-2"
-            value={filters.category}
-            onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))}
-          />
-
-          <input
-            type="date"
-            className="rounded-xl px-3 py-2"
-            value={filters.startDate}
-            onChange={(event) => setFilters((current) => ({ ...current, startDate: event.target.value }))}
-          />
-
-          <input
-            type="date"
-            className="rounded-xl px-3 py-2"
-            value={filters.endDate}
-            onChange={(event) => setFilters((current) => ({ ...current, endDate: event.target.value }))}
-          />
-        </div>
-      </section>
-
-      <section className="stagger-3 mt-6 rounded-2xl cozy-panel p-4 md:p-5">
-        <h2 className="mb-4 text-lg font-semibold">Gastos ({filteredExpenses.length})</h2>
-
-        <div className="space-y-3">
-          {filteredExpenses.length === 0 ? (
-            <p className="text-sm text-[#f5dfce]">No hay gastos para los filtros actuales.</p>
-          ) : (
-            filteredExpenses.map((expense) => (
-              <article key={expense.id} className="rounded-xl border border-[#ffd4b84a] bg-[#fff4eb12] p-3">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-base font-semibold">{expense.title}</h3>
-                    <p className="text-sm text-[#f5dfce]">
-                      {expense.date} · {expense.category || "Sin categoría"} · Cargó {expense.createdBy}
-                    </p>
-                    <p className="mt-2 text-sm text-[#fff2e7]">
-                      Original: {format(expense.amount, expense.currency)} · Pagó: {expense.paidBy}
-                      {expense.paidBy === "SHARED" && expense.splitDetails && (
-                        <span className="text-[#ffd8b6]"> (Tefi: {format(expense.splitDetails.TEFI, expense.currency)} | Facu: {format(expense.splitDetails.FACU, expense.currency)})</span>
-                      )}
-                    </p>
-                    <p className="text-sm text-[#f3d8c4]">
-                      Eq: {format(expense.converted.usd, "USD")} | {format(expense.converted.brl, "BRL")} | {format(expense.converted.ars, "ARS")}
-                    </p>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button className="cozy-pill rounded-lg px-3 py-1 text-sm text-[#ffe9d7]" onClick={() => onEdit(expense)}>
-                      Editar
-                    </button>
-                    <button className="cozy-danger rounded-lg px-3 py-1 text-sm" onClick={() => onDelete(expense.id)}>
-                      Eliminar
-                    </button>
-                  </div>
-                </div>
-              </article>
-            ))
-          )}
-        </div>
-      </section>
+      <ExpenseModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={loadData}
+        user={user}
+      />
     </main>
   );
 }

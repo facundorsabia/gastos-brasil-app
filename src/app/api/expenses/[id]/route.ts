@@ -22,7 +22,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const updated = await updateExpense(id, patch);
+  // Ensure splitDetails is undefined rather than null for the store logic
+  const patchData = { ...patch, splitDetails: patch.splitDetails === null ? undefined : patch.splitDetails };
+  const updated = await updateExpense(id, patchData);
   if (!updated) {
     return NextResponse.json({ error: "Expense not found" }, { status: 404 });
   }

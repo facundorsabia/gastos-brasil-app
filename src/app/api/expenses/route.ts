@@ -4,7 +4,7 @@ import { withConversion } from "@/lib/exchange";
 import { createExpense, getExpenses } from "@/lib/store";
 import { validateExpenseInput } from "@/lib/validation";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const expense = await createExpense(input);
+  const inputData = { ...input, splitDetails: input.splitDetails === null ? undefined : input.splitDetails };
+  const expense = await createExpense(inputData);
   return NextResponse.json({ expense }, { status: 201 });
 }
