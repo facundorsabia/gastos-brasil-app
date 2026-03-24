@@ -77,7 +77,7 @@ export function ExpenseModal({ isOpen, onClose, onSuccess, user, expenseToEdit }
                 date: form.date,
                 amount: Number(form.amount),
                 currency: form.currency,
-                createdBy: user.username.toUpperCase() as Person,
+                createdBy: form.createdBy,
                 paidBy: form.paidBy,
                 splitDetails: form.paidBy === "SHARED"
                     ? { TEFI: Number(form.splitDetails.TEFI), FACU: Number(form.splitDetails.FACU) }
@@ -95,7 +95,12 @@ export function ExpenseModal({ isOpen, onClose, onSuccess, user, expenseToEdit }
             });
 
             if (!response.ok) {
-                setError("No se pudo guardar el gasto. Revisá los datos.");
+                let errMsg = "Revisá los datos";
+                try {
+                    const resData = await response.json();
+                    errMsg = resData.error || errMsg;
+                } catch { }
+                setError(`No se pudo guardar: ${errMsg} (Status: ${response.status})`);
                 return;
             }
 
