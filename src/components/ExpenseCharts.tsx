@@ -16,16 +16,12 @@ import {
 } from "recharts";
 import { BarChart3, PieChart as PieChartIcon, ArrowDownWideNarrow, ArrowUpNarrowWide } from "lucide-react";
 import { ExpenseWithConversion } from "@/lib/types";
+import { CATEGORY_COLORS, FALLBACK_COLORS } from "@/lib/constants";
 
 // Extracted from page.tsx to represent the complete expense
 type ExpenseChartProps = {
     expenses: ExpenseWithConversion[];
 };
-
-const COLORS = [
-    "#2a9d8f", "#e76f51", "#f4a261", "#e9c46a", "#264653",
-    "#8ab17d", "#babb74", "#ef8a17", "#6b705c", "#a5a58d"
-];
 
 export function ExpenseCharts({ expenses }: ExpenseChartProps) {
     const [chartType, setChartType] = useState<"bar" | "pie">("bar");
@@ -118,9 +114,10 @@ export function ExpenseCharts({ expenses }: ExpenseChartProps) {
                                 formatter={(value: any) => [`$${value}`, "Total"]}
                             />
                             <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                                {data.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                ))}
+                                {data.map((entry, index) => {
+                                    const fillColor = CATEGORY_COLORS[entry.name] || FALLBACK_COLORS[index % FALLBACK_COLORS.length];
+                                    return <Cell key={`cell-${index}`} fill={fillColor} />;
+                                })}
                             </Bar>
                         </RechartsBarChart>
                     ) : (
@@ -135,9 +132,10 @@ export function ExpenseCharts({ expenses }: ExpenseChartProps) {
                                 dataKey="value"
                                 stroke="none"
                             >
-                                {data.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                ))}
+                                {data.map((entry, index) => {
+                                    const fillColor = CATEGORY_COLORS[entry.name] || FALLBACK_COLORS[index % FALLBACK_COLORS.length];
+                                    return <Cell key={`cell-${index}`} fill={fillColor} />;
+                                })}
                             </Pie>
                             <Tooltip
                                 contentStyle={{ backgroundColor: "#1a1512", borderColor: "#ffd4b820", borderRadius: "12px", color: "#fff0e5" }}

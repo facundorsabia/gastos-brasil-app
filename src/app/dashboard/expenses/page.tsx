@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
-import { ExpenseWithConversion, SessionUser, Person } from "@/lib/types";
+import { ExpenseWithConversion, SessionUser, Person, Category } from "@/lib/types";
 import { ExpenseModal } from "@/components/ExpenseModal";
 
 type Filters = {
@@ -23,6 +23,7 @@ const format = (amount: number, currency: string) =>
 export default function ExpensesPage() {
     const [user, setUser] = useState<SessionUser | null>(null);
     const [expenses, setExpenses] = useState<ExpenseWithConversion[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
     const [filters, setFilters] = useState<Filters>({ person: "ALL", category: "", startDate: "", endDate: "" });
     const [editingExpense, setEditingExpense] = useState<ExpenseWithConversion | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -34,9 +35,10 @@ export default function ExpensesPage() {
         setError(null);
 
         try {
-            const [sessionResponse, expensesResponse] = await Promise.all([
+            const [sessionResponse, expensesResponse, categoriesResponse] = await Promise.all([
                 fetch("/api/auth/session", { cache: "no-store" }),
                 fetch("/api/expenses", { cache: "no-store" }),
+                fetch("/api/categories", { cache: "no-store" }),
             ]);
 
             if (!sessionResponse.ok) {
@@ -58,6 +60,11 @@ export default function ExpensesPage() {
                 (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
             );
             setExpenses(sortedExpenses);
+
+            if (categoriesResponse.ok) {
+                const catPayload = await categoriesResponse.json();
+                setCategories(catPayload.categories || []);
+            }
         } catch {
             setError("Error de red cargando datos");
         } finally {
@@ -255,6 +262,7 @@ export default function ExpensesPage() {
                 onSuccess={loadData}
                 user={user}
                 expenseToEdit={editingExpense}
+                existingCategories={categories}
             />
         </main>
     );

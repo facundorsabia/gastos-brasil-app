@@ -3,26 +3,30 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, List as ListIcon } from "lucide-react";
-import { ExpenseWithConversion, SessionUser } from "@/lib/types";
+import { ExpenseWithConversion, SessionUser, Category } from "@/lib/types";
 import { KpiCards } from "@/components/KpiCards";
 import { ExpenseCharts } from "@/components/ExpenseCharts";
 import { ExpenseModal } from "@/components/ExpenseModal";
+import { CategoryManagerModal } from "@/components/CategoryManagerModal";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [expenses, setExpenses] = useState<ExpenseWithConversion[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const [sessionResponse, expensesResponse] = await Promise.all([
+      const [sessionResponse, expensesResponse, categoriesResponse] = await Promise.all([
         fetch("/api/auth/session", { cache: "no-store" }),
         fetch("/api/expenses", { cache: "no-store" }),
+        fetch("/api/categories", { cache: "no-store" }),
       ]);
 
       if (!sessionResponse.ok) {
@@ -40,6 +44,11 @@ export default function DashboardPage() {
 
       const expensesPayload = (await expensesResponse.json()) as { expenses: ExpenseWithConversion[] };
       setExpenses(expensesPayload.expenses);
+
+      if (categoriesResponse.ok) {
+        const catPayload = await categoriesResponse.json();
+        setCategories(catPayload.categories || []);
+      }
     } catch {
       setError("Error de red cargando datos");
     } finally {
@@ -122,6 +131,12 @@ export default function DashboardPage() {
             Ver Detalles
           </Link>
           <button
+            onClick={() => setIsCategoryModalOpen(true)}
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium bg-[#1a1512] border border-[#ffd4b820] hover:bg-[#231d19] transition-colors text-[#f0d9c7]"
+          >
+            Editar Categorías
+          </button>
+          <button
             onClick={() => setIsModalOpen(true)}
             className="cozy-cta flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium shadow-lg shadow-[#f4a261]/20 hover:-translate-y-0.5 transition-all"
           >
@@ -151,6 +166,13 @@ export default function DashboardPage() {
         onClose={() => setIsModalOpen(false)}
         onSuccess={loadData}
         user={user}
+        existingCategories={categories}
+      />
+      <CategoryManagerModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        categories={categories}
+        onSuccess={loadData}
       />
     </main>
   );

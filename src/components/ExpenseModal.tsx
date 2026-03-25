@@ -1,8 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Currency, PaidBy, Person, SessionUser, ExpenseWithConversion } from "@/lib/types";
+import { Currency, PaidBy, Person, SessionUser, ExpenseWithConversion, Category } from "@/lib/types";
 import { X, Loader2 } from "lucide-react";
+import { CategorySelect } from "@/components/CategorySelect";
 
 type ExpenseFormState = {
     title: string;
@@ -15,16 +16,21 @@ type ExpenseFormState = {
     splitDetails: { TEFI: string; FACU: string };
 };
 
-const getInitialForm = (user: SessionUser | null): ExpenseFormState => ({
-    title: "",
-    category: "",
-    date: new Date().toISOString().slice(0, 10),
-    amount: "",
-    currency: "BRL",
-    createdBy: (user?.username?.toUpperCase() as Person) || "TEFI",
-    paidBy: "TEFI",
-    splitDetails: { TEFI: "0", FACU: "0" },
-});
+const getInitialForm = (user: SessionUser | null): ExpenseFormState => {
+    const rawUser = user?.username?.toUpperCase() || "";
+    const resolvedPerson: Person = rawUser.includes("FACU") ? "FACU" : "TEFI";
+
+    return {
+        title: "",
+        category: "",
+        date: new Date().toISOString().slice(0, 10),
+        amount: "",
+        currency: "BRL",
+        createdBy: resolvedPerson,
+        paidBy: "TEFI",
+        splitDetails: { TEFI: "0", FACU: "0" },
+    };
+};
 
 interface ExpenseModalProps {
     isOpen: boolean;
@@ -32,9 +38,10 @@ interface ExpenseModalProps {
     onSuccess: () => void;
     user: SessionUser | null;
     expenseToEdit?: ExpenseWithConversion | null;
+    existingCategories?: Category[];
 }
 
-export function ExpenseModal({ isOpen, onClose, onSuccess, user, expenseToEdit }: ExpenseModalProps) {
+export function ExpenseModal({ isOpen, onClose, onSuccess, user, expenseToEdit, existingCategories = [] }: ExpenseModalProps) {
     const [form, setForm] = useState<ExpenseFormState>(getInitialForm(user));
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -145,11 +152,10 @@ export function ExpenseModal({ isOpen, onClose, onSuccess, user, expenseToEdit }
 
                         <div className="flex flex-col gap-1.5">
                             <label className="text-sm text-[#f0d9c7] ml-1">Categoría</label>
-                            <input
-                                placeholder="Ej: Comida, Transporte"
-                                className="rounded-xl px-4 py-2.5 bg-[#120f0d] border border-[#ffd4b820] text-[#fff0e5] placeholder:text-[#f0d9c7]/40 focus:outline-none focus:border-[#f4a261]"
+                            <CategorySelect
                                 value={form.category}
-                                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                                onChange={(val) => setForm({ ...form, category: val })}
+                                existingCategories={existingCategories}
                             />
                         </div>
 

@@ -30,6 +30,12 @@ export type SessionUser = {
   username: string;
 };
 
+export type Category = {
+  id: string;
+  name: string;
+  created_at?: string;
+};
+
 export type ConvertedAmount = {
   usd: number;
   brl: number;
